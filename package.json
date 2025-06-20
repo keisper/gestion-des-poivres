@@ -4,6 +4,7 @@
   "description": "Application de gestion de stock de poivre blanc",
   "main": "backend/server.js",
   "scripts": {
+    "main": "backend/server.js",
     "start": "node backend/server.js"
   },
   "dependencies": {
