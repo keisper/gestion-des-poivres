@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>Gestion de Stock - Poivre Blanc</title>
+  <style>
+    :root {
+      --green-light: #CDD5AE;
+      --yellow-light: #fef9e1;
+      --text-dark: #2c3e50;
+      --shadow: rgba(0, 0, 0, 0.1);
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--yellow-light);
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+
+    h1, h3 {
+      color: var(--text-dark);
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background-color: white;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 4px 10px var(--shadow);
+      margin-bottom: 30px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    input, button {
+      padding: 10px;
+      margin: 5px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 14px;
+      flex: 1 1 200px;
+    }
+
+    button {
+      background-color: var(--green-light);
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: #b8c497;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: center;
+    }
+
+    th {
+      background-color: var(--green-light);
+      color: var(--text-dark);
+    }
+
+    @media (max-width: 768px) {
+      table, thead, tbody, th, td, tr {
+        display: block;
+      }
+      thead tr {
+        display: none;
+      }
+      tr {
+        margin-bottom: 15px;
+        background-color: #fff;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 10px;
+      }
+      td {
+        text-align: right;
+        padding-left: 50%;
+        position: relative;
+      }
+      td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 10px;
+        font-weight: bold;
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div>
+    <button onclick="seDeconnecter()" style="float:right;margin:10px;">Se déconnecter</button>
+  </div>
+  <div>
+      <canvas id="ventesParArticle" height="100"></canvas>
+  </div>
+  <div class="container">
+    <h1>Gestion de la Production de Poivre Blanc</h1>
+
+    <div class="card">
+      <h3>Statistiques générales</h3>
+      <ul style="list-style: none; padding-left: 0; line-height: 1.8;">
+        <li><strong>Articles différents :</strong> <span id="stat-totalArticles">-</span></li>
+        <li><strong>Quantité totale en stock :</strong> <span id="stat-totalStock">-</span></li>
+        <li><strong>Quantité totale écoulée :</strong> <span id="stat-totalVendue">-</span></li>
+        <li><strong>Revenu total :</strong> <span id="stat-totalRevenu">-</span> FCFA</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>Ajouter un article</h3>
+      <div class="form-group">
+        <input type="text" id="id" placeholder="ID">
+        <input type="number" id="grammage" placeholder="Grammage (g)">
+        <input type="number" id="prix" placeholder="Prix (FCFA)">
+        <input type="number" id="quantite" placeholder="Quantité initiale">
+        <button onclick="ajouterArticle()">Ajouter</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Articles en stock</h3>
+      <input type="text" id="search" placeholder="Rechercher par ID ou grammage..." oninput="filtrerArticles()" style="width: 100%; padding: 10px; margin-bottom: 15px;">
+      <table id="table-stock">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Grammage</th>
+            <th>Prix</th>
+            <th>En stock</th>
+            <th>Écoulée</th>
+            <th>Supprimer</th>
+            <th>Vendre</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>Monétaire</h3>
+      <p>Total vendu : <strong><span id="total-vendu">0</span> FCFA</strong></p>
+    </div>
+
+    <div class="card" id="admin-section" style="display: none;">
+      <h3>Utilisateurs enregistrés</h3>
+      <ul id="user-list"></ul>
+    </div>
+
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000';
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = 'login.html';
+    }
+
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const userRole = payload.role;
+
+    function fetchAvecAuth(url, options = {}) {
+      options.headers = {
+        ...(options.headers || {}),
+        'Authorization': `Bearer ${token}`
+      };
+      return fetch(url, options);
+    }
+
+    async function seConnecter() {
+      const username = document.getElementById('login-username').value;
+      const password = document.getElementById('login-password').value;
+
+      const res = await fetchAvecAuth(`${API_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      if (!res.ok) return alert('Identifiants incorrects');
+
+      const data = await res.json();
+      token = data.token;
+      document.getElementById('login-card').style.display = 'none';
+      document.querySelector('.container').style.display = 'block';
+
+      chargerStock();
+    }
+
+    function seDeconnecter() {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    }
+
+
+
+    // surcharge fetch pour ajouter le token automatiquement
+    async function fetchAvecAuth(url, options = {}) {
+      options.headers = { ...options.headers, Authorization: `Bearer ${token}` };
+      return fetchAvecAuth(url, options);
+    }
+
+    async function ajouterArticle() {
+      const id = document.getElementById('id').value;
+      const grammage = parseInt(document.getElementById('grammage').value);
+      const prix = parseInt(document.getElementById('prix').value);
+      const quantite = parseInt(document.getElementById('quantite').value);
+
+      if (!id || isNaN(grammage) || isNaN(prix) || isNaN(quantite)) return alert('Champs invalides');
+
+      await fetchAvecAuth(`${API_URL}/articles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, grammage, prix, stock: quantite })
+      });
+
+      chargerStock();
+    }
+
+    async function chargerStock() {
+      const res = await fetchAvecAuth(`${API_URL}/articles`);
+      const articles = await res.json();
+      const tbody = document.querySelector('#table-stock tbody');
+      tbody.innerHTML = '';
+      let totalVendu = 0;
+
+      articles.forEach((a) => {
+        totalVendu += a.vendue * a.prix;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td data-label="ID">${a.id}</td>
+          <td data-label="Grammage">${a.grammage} g</td>
+          <td data-label="Prix">${a.prix} FCFA</td>
+          <td data-label="En stock">${a.stock}</td>
+          <td data-label="Écoulée">${a.vendue}</td>
+          <td data-label="Supprimer"><button onclick="supprimerArticle('${a.id}')">Supprimer</button></td>
+          <td data-label="Vendre"><button onclick="vendreArticle('${a.id}')">Vendre 1</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('total-vendu').innerText = totalVendu;
+    }
+
+    async function supprimerArticle(id) {
+      await fetchAvecAuth(`${API_URL}/articles/${id}`, { method: 'DELETE' });
+      chargerStock();
+    }
+
+    async function vendreArticle(id) {
+      const res = await fetchAvecAuth(`${API_URL}/articles/${id}/vendre`, { method: 'PUT' });
+      if (!res.ok) alert('Stock épuisé');
+      chargerStock();
+    }
+
+    let articlesGlobal = [];
+
+  function filtrerArticles() {
+    const query = document.getElementById('search').value.toLowerCase();
+    const articles = articlesGlobal.filter(a =>
+      a.id.toLowerCase().includes(query) ||
+      a.grammage.toString().includes(query)
+    );
+    afficherArticles(articles);
+  }
+
+  function afficherArticles(articles) {
+    const tbody = document.querySelector('#table-stock tbody');
+    tbody.innerHTML = '';
+    let totalVendu = 0;
+
+    articles.forEach((a) => {
+      totalVendu += a.vendue * a.prix;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td data-label="ID">${a.id}</td>
+        <td data-label="Grammage">${a.grammage} g</td>
+        <td data-label="Prix">${a.prix} FCFA</td>
+        <td data-label="En stock">${a.stock}</td>
+        <td data-label="Écoulée">${a.vendue}</td>
+        <td data-label="Supprimer"><button onclick="supprimerArticle('${a.id}')">Supprimer</button></td>
+        <td data-label="Vendre"><button onclick="vendreArticle('${a.id}')">Vendre 1</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('total-vendu').innerText = totalVendu;
+  }
+
+  async function chargerStock() {
+    const res = await fetchAvecAuth(`${API_URL}/articles`);
+    articlesGlobal = await res.json();
+    afficherArticles(articlesGlobal);
+  }
+
+  async function chargerStatistiques() {
+    const res = await fetchAvecAuth(`${API_URL}/stats`);
+    const stats = await res.json();
+    document.getElementById('stat-totalArticles').textContent = stats.totalArticles;
+    document.getElementById('stat-totalStock').textContent = stats.totalStock;
+    document.getElementById('stat-totalVendue').textContent = stats.totalVendue;
+    document.getElementById('stat-totalRevenu').textContent = stats.totalRevenu;
+  }
+
+  async function afficherGraphiqueVentes() {
+    const res = await fetchAvecAuth(`${API_URL}/stats/ventes`);
+    const data = await res.json();
+    const labels = data.map(a => a.id);
+    const valeurs = data.map(a => a.vendue);
+
+    new Chart(document.getElementById('ventesParArticle'), {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Articles vendus',
+          data: valeurs,
+          backgroundColor: '#CDD5AE'
+        }]
+      }
+    });
+  }
+
+  async function chargerUtilisateurs() {
+    const res = await fetchAvecAuth(`${API_URL}/users`);
+    const users = await res.json();
+    const ul = document.getElementById('user-list');
+    ul.innerHTML = '';
+    users.forEach(u => {
+      const li = document.createElement('li');
+      li.textContent = u.username;
+      const btn = document.createElement('button');
+      btn.textContent = 'Supprimer';
+      btn.onclick = async () => {
+        await fetchAvecAuth(`${API_URL}/users/${u.id}`, { method: 'DELETE' });
+        chargerUtilisateurs();
+      };
+      li.appendChild(btn);
+      ul.appendChild(li);
+    });
+  }
+
+
+
+
+
+    // Masquer la section admin si l'utilisateur n'est pas admin
+    window.onload = () => {
+      chargerStock();
+      chargerStatistiques();
+      afficherGraphiqueVentes();
+
+      if (userRole === 'admin') {
+        chargerUtilisateurs();
+        document.getElementById('admin-section').style.display = 'block';
+      } else {
+        document.getElementById('admin-section').style.display = 'none';
+      }
+    };
+
+</script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion - Gestion Stock Poivre</title>
+  <style>
+    :root {
+      --green-light: #CDD5AE;
+      --yellow-light: #fef9e1;
+      --text-dark: #2c3e50;
+    }
+
+    body {
+      background-color: var(--yellow-light);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .login-card {
+      background: white;
+      padding: 30px 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 400px;
+      box-sizing: border-box;
+    }
+
+    .login-card h1 {
+      margin-bottom: 10px;
+      font-size: 22px;
+      color: var(--text-dark);
+    }
+
+    .login-card h2 {
+      margin-bottom: 20px;
+      color: var(--text-dark);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: var(--green-light);
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: #b8c497;
+    }
+
+    .error {
+      color: red;
+      margin-bottom: 10px;
+    }
+
+    .link {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #333;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    @media (max-width: 480px) {
+      .login-card {
+        padding: 20px 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <h1>Gestion des stocks du poivre</h1>
+    <h2 id="form-title">Connexion</h2>
+    <div class="error" id="error-msg"></div>
+    <div class="form-group">
+        <input type="text" id="login-username" placeholder="Nom d'utilisateur">
+        <input type="password" id="login-password" placeholder="Mot de passe">
+        <select id="login-role" style="padding: 12px; border: 1px solid #ccc; border-radius: 6px;">
+            <option value="user">Utilisateur</option>
+            <option value="admin">Administrateur</option>
+        </select>
+        <button id="submit-btn" onclick="seConnecter()">Se connecter</button>
+    </div>
+    <div class="link" onclick="toggleForm()">Créer un compte</div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000';
+    let modeInscription = false;
+
+    async function seConnecter() {
+      const username = document.getElementById('login-username').value;
+      const password = document.getElementById('login-password').value;
+      const errorMsg = document.getElementById('error-msg');
+
+      const url = modeInscription ? '/register' : '/login';
+        const role = document.getElementById('login-role')?.value || 'user';
+
+        const res = await fetch(`${API_URL}${url}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, role })
+        });
+
+
+      if (!res.ok) {
+        const errorText = await res.json();
+        errorMsg.textContent = errorText.error || 'Erreur';
+        return;
+      }
+
+      if (modeInscription) {
+        errorMsg.style.color = 'green';
+        errorMsg.textContent = 'Compte créé. Vous pouvez maintenant vous connecter.';
+        toggleForm();
+      } else {
+        const data = await res.json();
+        localStorage.setItem('token', data.token);
+        window.location.href = 'index.html';
+      }
+    }
+
+    function toggleForm() {
+      modeInscription = !modeInscription;
+      document.getElementById('form-title').textContent = modeInscription ? 'Créer un compte' : 'Connexion';
+      document.getElementById('submit-btn').textContent = modeInscription ? "S'inscrire" : 'Se connecter';
+      document.querySelector('.link').textContent = modeInscription ? 'Déjà un compte ? Se connecter' : 'Créer un compte';
+      document.getElementById('error-msg').textContent = '';
+      document.getElementById('error-msg').style.color = 'red';
+      document.getElementById('login-role').style.display = modeInscription ? 'block' : 'none';
+    }
+  </script>
+</body>
+</html>
