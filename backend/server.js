@@ -26,7 +26,7 @@ const db = new sqlite3.Database('./backend/stock.db');
 
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS articles (
-    id TEXT PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     grammage INTEGER,
     prix INTEGER,
     stock INTEGER,
