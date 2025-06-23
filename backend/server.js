@@ -26,7 +26,7 @@ const db = new sqlite3.Database('./backend/stock.db');
 
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS articles (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY AUTOINCREMENT,
     grammage INTEGER,
     prix INTEGER,
     stock INTEGER,
@@ -72,7 +72,7 @@ app.post('/register', (req, res) => {
 
 app.post('/articles', (req, res) => {
   const { id, grammage, prix, stock } = req.body;
-  db.run('INSERT INTO articles VALUES (?, ?, ?, ?, ?)', [id, grammage, prix, stock, 0], (err) => {
+  db.run('INSERT INTO articles (grammage, prix, stock, vendue) VALUES (?, ?, ?, ?)', [grammage, prix, stock, 0], (err) => {
     if (err) return res.status(500).json({ error: err.message });
     res.status(201).json({ success: true });
   });

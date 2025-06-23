@@ -134,7 +134,6 @@
     <div class="card">
       <h3>Ajouter un article</h3>
       <div class="form-group">
-        <input type="text" id="id" placeholder="ID">
         <input type="number" id="grammage" placeholder="Grammage (g)">
         <input type="number" id="prix" placeholder="Prix (FCFA)">
         <input type="number" id="quantite" placeholder="Quantité initiale">
@@ -148,7 +147,6 @@
       <table id="table-stock">
         <thead>
           <tr>
-            <th>ID</th>
             <th>Grammage</th>
             <th>Prix</th>
             <th>En stock</th>
@@ -218,25 +216,17 @@
     }
 
 
-
-    // surcharge fetch pour ajouter le token automatiquement
-    async function fetchAvecAuth(url, options = {}) {
-      options.headers = { ...options.headers, Authorization: `Bearer ${token}` };
-      return fetchAvecAuth(url, options);
-    }
-
     async function ajouterArticle() {
-      const id = document.getElementById('id').value;
       const grammage = parseInt(document.getElementById('grammage').value);
       const prix = parseInt(document.getElementById('prix').value);
       const quantite = parseInt(document.getElementById('quantite').value);
 
-      if (!id || isNaN(grammage) || isNaN(prix) || isNaN(quantite)) return alert('Champs invalides');
+      if (isNaN(grammage) || isNaN(prix) || isNaN(quantite)) return alert('Champs invalides');
 
       await fetchAvecAuth(`${API_URL}/articles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, grammage, prix, stock: quantite })
+        body: JSON.stringify({ grammage, prix, stock: quantite })
       });
 
       chargerStock();
@@ -253,7 +243,6 @@
         totalVendu += a.vendue * a.prix;
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td data-label="ID">${a.id}</td>
           <td data-label="Grammage">${a.grammage} g</td>
           <td data-label="Prix">${a.prix} FCFA</td>
           <td data-label="En stock">${a.stock}</td>
@@ -298,7 +287,6 @@
       totalVendu += a.vendue * a.prix;
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td data-label="ID">${a.id}</td>
         <td data-label="Grammage">${a.grammage} g</td>
         <td data-label="Prix">${a.prix} FCFA</td>
         <td data-label="En stock">${a.stock}</td>
